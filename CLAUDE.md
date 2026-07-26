@@ -14,6 +14,10 @@ This project runs **Next.js 16.2.12 + React 19.2.4 + Tailwind v4** — newer tha
 
 Prefer these files over memory. Heed deprecation notices in them.
 
+## Skills
+
+Usa siempre /frontend-design para diseñar la interfaz de usuario.
+
 ## Commands
 
 ```bash
