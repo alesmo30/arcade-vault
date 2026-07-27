@@ -12,6 +12,9 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Reference templates: raw browser JSX (no bundler, window globals),
+    // ported into app/ as TypeScript — not app code, not meant to lint.
+    "references/**",
   ]),
 ]);
 
