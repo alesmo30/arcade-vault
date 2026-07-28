@@ -49,7 +49,7 @@ export function GamePlayer({ game }: { game: Game }) {
             {paused ? "REANUDAR" : "PAUSA"}
           </button>
           <button className="btn magenta" onClick={endGame}>FIN</button>
-          <Link href={`/juego/${game.id}`} className="btn ghost">SALIR</Link>
+          <Link href={`/games/${game.id}`} className="btn ghost">SALIR</Link>
         </div>
       </div>
 
@@ -100,7 +100,7 @@ export function GamePlayer({ game }: { game: Game }) {
             )}
             <div className="actions">
               <button className="btn" onClick={restart}>JUGAR DE NUEVO</button>
-              <Link href="/" className="btn magenta">VOLVER AL VAULT</Link>
+              <Link href="/games" className="btn magenta">VOLVER AL VAULT</Link>
             </div>
           </div>
         </div>

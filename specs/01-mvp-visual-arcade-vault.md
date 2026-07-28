@@ -1,6 +1,6 @@
 # SPEC 01 — MVP visual de Arcade Vault
 
-> **Status:** Approved
+> **Status:** Implemented
 > **Depends on:** —
 > **Date:** 2026-07-25
 > **Objective:** Convertir las 5 pantallas de `references/templates/*.jsx` en rutas reales de Next.js App Router con TypeScript, sin implementar ningún juego real.
