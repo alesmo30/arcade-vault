@@ -4,6 +4,7 @@ import { useRef, useState } from "react";
 import Link from "next/link";
 import { useSession } from "@/app/auth-context";
 import type { Game } from "@/app/data";
+import { saveScore } from "@/app/games/actions";
 import { ENGINES } from "@/app/games/engines/registry";
 import { GameCanvas } from "@/app/games/engines/game-canvas";
 import type { EngineState, GameEngine } from "@/app/games/engines/types";
@@ -23,7 +24,8 @@ export function GamePlayer({ game }: { game: Game }) {
   const [mockOver, setMockOver] = useState(false);
 
   const [name, setName] = useState(user ? user.name : "INVITADO");
-  const [saved, setSaved] = useState(false);
+  const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   const score = hasEngine ? (engineState?.score ?? 0) : FIXED_SCORE;
   const lives = hasEngine ? (engineState?.lives ?? 0) : FIXED_LIVES;
@@ -52,7 +54,25 @@ export function GamePlayer({ game }: { game: Game }) {
       setMockPaused(false);
       setMockOver(false);
     }
-    setSaved(false);
+    setSaveState("idle");
+    setSaveError(null);
+  };
+
+  const handleSave = async () => {
+    if (!hasEngine) {
+      setSaveState("saved");
+      return;
+    }
+
+    setSaveState("saving");
+    setSaveError(null);
+    const result = await saveScore({ gameId: game.id, playerName: name, score });
+    if (result.ok) {
+      setSaveState("saved");
+    } else {
+      setSaveState("error");
+      setSaveError(result.error ?? "NO SE PUDO GUARDAR");
+    }
   };
 
   return (
@@ -138,19 +158,29 @@ export function GamePlayer({ game }: { game: Game }) {
             <h2>FIN DEL JUEGO</h2>
             <div className="final-label">PUNTUACIÓN FINAL</div>
             <div className="final">{score.toLocaleString("es-ES")}</div>
-            {!saved ? (
+            {saveState === "saved" ? (
+              <div className="toast-saved">▸ PUNTUACIÓN GUARDADA_</div>
+            ) : (
               <div className="input-row">
                 <input
                   value={name}
                   onChange={(e) => setName(e.target.value.toUpperCase().slice(0, 10))}
                   placeholder="TUS INICIALES"
+                  disabled={!!user}
                 />
-                <button className="btn yellow" onClick={() => setSaved(true)}>
-                  GUARDAR PUNTUACIÓN
+                <button
+                  className="btn yellow"
+                  onClick={handleSave}
+                  disabled={saveState === "saving"}
+                >
+                  {saveState === "saving" ? "GUARDANDO…" : "GUARDAR PUNTUACIÓN"}
                 </button>
+                {hasEngine && saveState === "error" && (
+                  <span className="mono" style={{ fontSize: 11, color: "var(--magenta)" }}>
+                    {saveError}
+                  </span>
+                )}
               </div>
-            ) : (
-              <div className="toast-saved">▸ PUNTUACIÓN GUARDADA_</div>
             )}
             <div className="actions">
               <button className="btn" onClick={restart}>

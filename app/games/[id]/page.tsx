@@ -1,21 +1,13 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { GAMES, seededScores } from "@/app/data";
+import { getGameById, getBestScore, getTopScores } from "@/app/data/queries";
 
-export function generateStaticParams() {
-  return GAMES.map((g) => ({ id: g.id }));
-}
-
-export default async function GameDetailPage({
-  params,
-}: {
-  params: Promise<{ id: string }>;
-}) {
+export default async function GameDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const game = GAMES.find((g) => g.id === id);
+  const game = await getGameById(id);
   if (!game) notFound();
 
-  const scores = seededScores(id.length * 17 + 3, 10);
+  const [best, scores] = await Promise.all([getBestScore(id), getTopScores(id, 10)]);
 
   return (
     <div className="av-detail fade-in">
@@ -43,7 +35,7 @@ export default async function GameDetailPage({
                 className="v"
                 style={{ color: "var(--magenta)", textShadow: "0 0 6px rgba(255,0,110,0.5)" }}
               >
-                {game.best.toLocaleString("es-ES")}
+                {best.toLocaleString("es-ES")}
               </div>
             </div>
             <div>
@@ -70,21 +62,35 @@ export default async function GameDetailPage({
       <aside>
         <div className="leaderboard">
           <h3>MEJORES PUNTUACIONES</h3>
-          {scores.map((r, i) => (
-            <div
-              key={r.name}
-              className={"lb-row" + (i === 0 ? " top1" : i === 1 ? " top2" : i === 2 ? " top3" : "")}
-            >
-              <div className="rk">#{String(r.rank).padStart(2, "0")}</div>
-              <div className="pl">
-                {r.name}
-                <div style={{ fontSize: 10, color: "var(--ink-faint)", letterSpacing: "0.1em" }}>
-                  {r.date}
-                </div>
+          {scores.length === 0 ? (
+            <div style={{ textAlign: "center", padding: "32px 8px", color: "var(--ink-faint)" }}>
+              <div
+                className="pixel"
+                style={{ fontSize: 11, color: "var(--cyan)", marginBottom: 8 }}
+              >
+                AÚN NADIE HA MARCADO
               </div>
-              <div className="sc">{r.score.toLocaleString("es-ES")}</div>
+              <div style={{ fontSize: 12 }}>Sé el primero en dejar tu puntuación.</div>
             </div>
-          ))}
+          ) : (
+            scores.map((r, i) => (
+              <div
+                key={r.name + i}
+                className={
+                  "lb-row" + (i === 0 ? " top1" : i === 1 ? " top2" : i === 2 ? " top3" : "")
+                }
+              >
+                <div className="rk">#{String(r.rank).padStart(2, "0")}</div>
+                <div className="pl">
+                  {r.name}
+                  <div style={{ fontSize: 10, color: "var(--ink-faint)", letterSpacing: "0.1em" }}>
+                    {r.date}
+                  </div>
+                </div>
+                <div className="sc">{r.score.toLocaleString("es-ES")}</div>
+              </div>
+            ))
+          )}
         </div>
       </aside>
     </div>
