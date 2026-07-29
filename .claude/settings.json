@@ -1,0 +1,17 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit|MultiEdit|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "statusMessage": "Formateando y validando whitespace",
+            "timeout": 60,
+            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/format-and-validate.sh\""
+          }
+        ]
+      }
+    ]
+  }
+}
