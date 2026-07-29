@@ -89,6 +89,17 @@ export const GAMES: Game[] = [
     best: 24,
     plays: "4.2K",
   },
+  {
+    id: "asteroides",
+    title: "ASTEROIDES",
+    short: "Vuela, dispara y parte rocas en gravedad cero.",
+    long: "Una nave vectorial flota en el vacío mientras campos de asteroides giran a la deriva. Rota, propúlsate y dispara: cada roca destruida se parte en fragmentos más pequeños hasta desintegrarse.",
+    cat: "SHOOTER",
+    cover: "cover-asteroides",
+    color: "cyan",
+    best: 0,
+    plays: "0",
+  },
 ];
 
 export const CATS = ["TODOS", "ARCADE", "PUZZLE", "SHOOTER", "VERSUS"] as const;
