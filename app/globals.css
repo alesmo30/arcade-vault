@@ -663,20 +663,33 @@ a {
 }
 
 .cover-snake {
-  background: linear-gradient(135deg, #003a2a, #0a0a18);
+  background: linear-gradient(160deg, #002a1a, #0a0a18);
 }
 .cover-snake::after {
   content: "";
   position: absolute;
   inset: 0;
   background-image:
-    radial-gradient(circle at 70% 50%, var(--magenta) 0 6px, transparent 7px),
-    linear-gradient(90deg, var(--green) 0 40px, transparent 40px) 20% 50% / 200px 12px no-repeat,
-    linear-gradient(90deg, var(--green) 0 12px, transparent 12px) calc(20% + 40px)
-      calc(50% - 12px) / 12px 12px no-repeat,
-    linear-gradient(90deg, var(--green) 0 12px, transparent 12px) calc(20% + 28px)
-      calc(50% - 12px) / 12px 12px no-repeat;
-  filter: drop-shadow(0 0 6px rgba(0, 255, 136, 0.6));
+    radial-gradient(circle at 78% 30%, var(--magenta) 0 7px, transparent 8px),
+    linear-gradient(var(--green), var(--green)) 18% 62%/14% 14% no-repeat,
+    linear-gradient(var(--green), var(--green)) 32% 62%/14% 14% no-repeat,
+    linear-gradient(var(--green), var(--green)) 46% 62%/14% 14% no-repeat,
+    linear-gradient(var(--green), var(--green)) 46% 48%/14% 14% no-repeat,
+    linear-gradient(var(--green), var(--green)) 46% 34%/14% 14% no-repeat,
+    linear-gradient(var(--green), var(--green)) 60% 34%/14% 14% no-repeat;
+  filter: drop-shadow(0 0 6px rgba(0, 255, 136, 0.55));
+  image-rendering: pixelated;
+}
+.cover-snake::before {
+  content: "";
+  position: absolute;
+  left: 60%;
+  top: 34%;
+  width: 14%;
+  height: 14%;
+  background: #08140e;
+  border: 2px solid var(--green);
+  filter: drop-shadow(0 0 6px var(--green));
 }
 
 .cover-glot {
@@ -833,6 +846,39 @@ a {
   height: 6px;
   background: var(--yellow);
   filter: drop-shadow(0 0 10px var(--yellow));
+}
+
+.cover-arkanoid {
+  background: linear-gradient(165deg, #1a001a, #000);
+}
+.cover-arkanoid::after {
+  content: "";
+  position: absolute;
+  inset: 16% 14% 46% 14%;
+  background:
+    linear-gradient(var(--magenta), var(--magenta)) 0 0/23% 28% no-repeat,
+    linear-gradient(var(--cyan), var(--cyan)) 25.5% 0/23% 28% no-repeat,
+    linear-gradient(var(--yellow), var(--yellow)) 51% 0/23% 28% no-repeat,
+    linear-gradient(var(--green), var(--green)) 76.5% 0/23% 28% no-repeat,
+    linear-gradient(var(--magenta), var(--magenta)) 0 36%/23% 28% no-repeat,
+    linear-gradient(var(--cyan), var(--cyan)) 25.5% 36%/23% 28% no-repeat,
+    linear-gradient(var(--yellow), var(--yellow)) 51% 36%/23% 28% no-repeat,
+    linear-gradient(var(--green), var(--green)) 76.5% 36%/23% 28% no-repeat,
+    linear-gradient(var(--magenta), var(--magenta)) 0 72%/23% 28% no-repeat,
+    linear-gradient(var(--cyan), var(--cyan)) 25.5% 72%/23% 28% no-repeat,
+    linear-gradient(var(--yellow), var(--yellow)) 51% 72%/23% 28% no-repeat,
+    linear-gradient(var(--green), var(--green)) 76.5% 72%/23% 28% no-repeat;
+  filter: drop-shadow(0 0 6px rgba(255, 0, 110, 0.35));
+}
+.cover-arkanoid::before {
+  content: "";
+  position: absolute;
+  left: 38%;
+  width: 24%;
+  bottom: 16%;
+  height: 8px;
+  background: var(--magenta);
+  filter: drop-shadow(0 0 8px var(--magenta));
 }
 
 /* ===== detail screen ===== */
