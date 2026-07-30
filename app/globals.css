@@ -662,25 +662,6 @@ a {
   background: repeating-linear-gradient(0deg, transparent 0 32px, rgba(0, 0, 0, 0.4) 32px 33px);
 }
 
-.cover-tetro {
-  background: radial-gradient(circle at 50% 100%, #2a004a, #0a0a18);
-}
-.cover-tetro::after {
-  content: "";
-  position: absolute;
-  inset: 20% 30% 0 30%;
-  background:
-    linear-gradient(#00f5ff, #00f5ff) 0 0/25% 33%,
-    linear-gradient(#ff006e, #ff006e) 25% 0/25% 33%,
-    linear-gradient(#f5ff00, #f5ff00) 50% 33%/25% 33%,
-    linear-gradient(#00ff88, #00ff88) 25% 66%/25% 33%,
-    linear-gradient(#ff7700, #ff7700) 50% 66%/25% 33%,
-    linear-gradient(#aa00ff, #aa00ff) 75% 33%/25% 33%;
-  background-repeat: no-repeat;
-  filter: drop-shadow(0 0 8px rgba(0, 245, 255, 0.4));
-  image-rendering: pixelated;
-}
-
 .cover-snake {
   background: linear-gradient(135deg, #003a2a, #0a0a18);
 }
@@ -824,6 +805,34 @@ a {
   border: 1.5px solid var(--cyan);
   clip-path: polygon(100% 50%, 0% 0%, 22% 50%, 0% 100%);
   filter: drop-shadow(0 0 6px var(--cyan));
+}
+
+.cover-tetris {
+  background: linear-gradient(170deg, #2a2400, #0a0a18);
+}
+.cover-tetris::after {
+  content: "";
+  position: absolute;
+  inset: 22% 32% 18% 32%;
+  background:
+    linear-gradient(var(--yellow), var(--yellow)) 0 0/32% 30% no-repeat,
+    linear-gradient(var(--cyan), var(--cyan)) 34% 0/32% 30% no-repeat,
+    linear-gradient(var(--magenta), var(--magenta)) 68% 30%/32% 30% no-repeat,
+    linear-gradient(var(--green), var(--green)) 0 30%/32% 30% no-repeat,
+    linear-gradient(var(--yellow), var(--yellow)) 34% 60%/32% 30% no-repeat,
+    linear-gradient(var(--cyan), var(--cyan)) 68% 60%/32% 30% no-repeat;
+  filter: drop-shadow(0 0 6px rgba(245, 255, 0, 0.35));
+  image-rendering: pixelated;
+}
+.cover-tetris::before {
+  content: "";
+  position: absolute;
+  left: 18%;
+  right: 18%;
+  bottom: 15%;
+  height: 6px;
+  background: var(--yellow);
+  filter: drop-shadow(0 0 10px var(--yellow));
 }
 
 /* ===== detail screen ===== */
