@@ -12,4 +12,6 @@ Usa siempre /frontend-design para diseñar la interfaz de usuario.
 
 ## Current state
 
-Repo has no commits yet, branch is `spec-01-mvp-arkanoid`, and `specs/` does not exist — spec 01 (Arkanoid MVP) has not been written or committed yet.
+Branch `main`, specs 01–09 written and merged (`specs/01…09`). Live: landing, `/games` catalog, game detail, player, `/salon-de-la-fama`, `/acerca-de` con Resend, sesión local falsa en `/auth`. Cuatro motores en `app/games/engines/`: asteroides, tetris, arkanoid, snake. Datos y leaderboard en Supabase (migraciones en `supabase/migrations/`).
+
+Next spec number: **10**.
