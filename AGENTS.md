@@ -18,13 +18,17 @@ Prefer these files over memory. Heed deprecation notices in them.
 ## Commands
 
 ```bash
-npm run dev      # dev server (Turbopack)
-npm run build    # production build
-npm run start    # serve production build
-npm run lint     # eslint (flat config, bare `eslint` — no args needed)
+npm run dev          # dev server (Turbopack)
+npm run build        # production build
+npm run start        # serve production build
+npm run lint         # eslint (flat config, bare `eslint` — no args needed)
+npm run format       # prettier --write .
+npm run format:check # prettier --check .
 ```
 
 No test framework is installed. If a spec requires tests, pick one and record the decision in that spec.
+
+Prettier is wired in (`.prettierrc.json`, `eslint-config-prettier`); run `npm run format` before committing.
 
 ## Spec-driven workflow (this is how work starts here)
 
@@ -41,12 +45,48 @@ Consequences for any implementation work:
 
 ## Architecture
 
-Untouched `create-next-app` scaffold. Nothing project-specific exists yet, so the shape below is what a game must slot into:
+Arcade platform: play canvas games in the browser, save scores to Supabase, compete on leaderboards. Specs 01–09 are implemented.
 
-- **App Router only** (`app/`). `app/layout.tsx` wires Geist/Geist_Mono via `next/font/google` into `--font-geist-sans` / `--font-geist-mono` CSS variables.
-- **Tailwind v4, CSS-first.** No `tailwind.config.*` — theme tokens live in `app/globals.css` under `@theme inline`, and Tailwind loads through `@import "tailwindcss"` with `@tailwindcss/postcss`. Add design tokens there, not in a JS config.
-- TypeScript `strict`, `noEmit`; import alias `@/*` maps to the repo root.
-- Product intent (README): an online platform to play arcade games and compete on score — so game loops are client-side (`"use client"`, canvas/rAF) while scores/leaderboards are the server-side concern. No backend or persistence has been chosen yet; that decision belongs in a spec.
+### Routes (App Router only, `app/`)
+
+| Route               | File                                   | Kind                               |
+| ------------------- | -------------------------------------- | ---------------------------------- |
+| `/`                 | `app/page.tsx` → `app/home-client.tsx` | server shell + client landing      |
+| `/games`            | `app/games/page.tsx`                   | server, catalog from Supabase      |
+| `/games/[id]`       | `app/games/[id]/page.tsx`              | server, game detail + top scores   |
+| `/games/[id]/jugar` | `app/games/[id]/jugar/page.tsx`        | server shell → `GamePlayer` client |
+| `/salon-de-la-fama` | `app/salon-de-la-fama/page.tsx`        | server, global leaderboard         |
+| `/acerca-de`        | `app/acerca-de/page.tsx`               | server + contact form (Resend)     |
+| `/auth`             | `app/auth/page.tsx`                    | client, fake local session         |
+
+`app/layout.tsx` loads `Press_Start_2P`, `Courier_Prime`, `JetBrains_Mono` via `next/font/google` into `--font-pixel` / `--font-courier` / `--font-jetbrains`, and wraps everything in `AuthProvider` + `Nav`.
+
+### Game engines
+
+- Engines are framework-free TypeScript in `app/games/engines/<slug>/engine.ts` (asteroides, tetris, arkanoid, snake). No React, no DOM outside the canvas.
+- Contract in `app/games/engines/types.ts`: a `GameEngineFactory(canvas, onState)` returns `GameEngine` with `pause/resume/restart/endNow/destroy`, and pushes `EngineState { score, lives, level, status }` upward.
+- `app/games/engines/registry.ts` maps `game.id` → factory. **Adding a game = new engine folder + registry entry + a Supabase migration inserting the row in `games`.** A row without a registry entry is a broken game — remove one and you remove both.
+- `GameCanvas` (`game-canvas.tsx`) is the only bridge: mounts/destroys the engine, forwards the imperative handle. `GamePlayer` (`app/components/game-player.tsx`) owns HUD, pause overlay, game-over and score submit.
+
+### Data layer
+
+- `app/data/queries.ts` is `server-only`: `getGames`, `getGameById`, `getTopScores`, `getBestScore`, `getGameWithBest`, `getGamesWithBest`. Server Components read from here — never query Supabase inline in a page.
+- `app/data/types.ts` holds `Game`, `GameWithBest`, `ScoreRow`, `SessionUser`, `CATS`. Re-exported from `app/data`.
+- Three Supabase clients, do not mix them: `lib/supabase/server.ts` (SSR + cookies, publishable key, reads), `lib/supabase/client.ts` (browser, publishable key), `lib/supabase/admin.ts` (`server-only`, secret key, writes only).
+- Schema in `supabase/migrations/`: `games` (text id, cat/color CHECKs, `plays`, `sort`) and `scores` (game_id FK, player_name ≤20, score ≥ 0, `created_at`), index `(game_id, score desc)`. RLS on both tables with **select-only** policies for `anon`/`authenticated` — that's why inserts go through the admin client in a Server Action.
+- Writes are Server Actions: `app/games/actions.ts#saveScore` (validates, inserts score, bumps `plays`), `app/acerca-de/actions.ts#sendContactMessage` (Resend, `useActionState` shape).
+- Supabase MCP server is configured in `.mcp.json` (project `izyihpadbcilwqlynmud`). Schema changes go through a migration file in `supabase/migrations/`, not ad-hoc SQL.
+
+### Auth
+
+`app/auth-context.tsx` is a **fake client-side session**: `useSyncExternalStore` over `localStorage["av_user"]`, just a `{ name }` used to prefill the score submit. No Supabase Auth, no server session. Don't treat it as security.
+
+### Styling
+
+- **Tailwind v4, CSS-first.** No `tailwind.config.*`. `app/globals.css` (~2.8k lines) holds the whole arcade theme: CSS vars in `:root` (`--bg`, `--cyan`, `--magenta`, `--yellow`, `--green`, `--gold`, `--pixel`, `--mono`…), `@theme inline` bridging, plus hand-written component classes (covers, cards, CRT effects). Extend there; match the existing neon/CRT language.
+- `references/templates/` holds the original HTML/JSX design mockups and the starter game sources — consult them before inventing new UI or game feel.
+- TypeScript `strict`, `noEmit`; alias `@/*` → repo root.
+- Env vars: see `.env.template` (`RESEND_API_KEY`, `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SECRET_KEY`, `SUPABASE_DB_PASSWORD`).
 
 ## Language
 
