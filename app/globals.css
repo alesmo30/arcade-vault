@@ -198,6 +198,19 @@ a {
   backdrop-filter: blur(8px);
   border-bottom: 1px solid var(--line);
 }
+/* La ruta de juego oculta nav y footer en táctil: pantalla de partida a pantalla completa, SALIR ya está en el HUD. */
+/* .is-touch-game la pone game-player.tsx en <body> vía JS: :has() no lo soportan todos los navegadores móviles. */
+body:has(.av-player.is-touch) .av-nav,
+body:has(.av-player.is-touch) footer,
+body.is-touch-game .av-nav,
+body.is-touch-game footer {
+  display: none;
+}
+body:has(.av-player.is-touch),
+body.is-touch-game {
+  height: 100dvh;
+  overflow: hidden;
+}
 .av-nav .logo {
   display: flex;
   align-items: center;
@@ -1064,6 +1077,63 @@ a {
 .hud-actions {
   display: flex;
   gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+/* ===== skin selector ===== */
+.skin-select {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.skin-select-label {
+  font-family: var(--pixel);
+  font-size: 9px;
+  letter-spacing: 0.14em;
+  color: var(--ink-dim);
+}
+.skin-select-options {
+  display: inline-flex;
+  border: 1px solid var(--ink-faint);
+  clip-path: polygon(6px 0, 100% 0, 100% calc(100% - 6px), calc(100% - 6px) 100%, 0 100%, 0 6px);
+}
+.skin-btn {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  padding: 9px 11px;
+  background: transparent;
+  border: none;
+  color: var(--ink-dim);
+  cursor: pointer;
+  transition:
+    color 160ms,
+    background 160ms,
+    box-shadow 160ms;
+}
+.skin-btn + .skin-btn {
+  border-left: 1px solid var(--ink-faint);
+}
+.skin-btn:hover {
+  color: var(--ink);
+}
+.skin-btn:focus-visible {
+  outline: 2px solid var(--cyan);
+  outline-offset: -2px;
+}
+.skin-btn.skin-clasico.active {
+  color: var(--cyan);
+  background: rgba(0, 245, 255, 0.1);
+}
+.skin-btn.skin-neon.active {
+  color: var(--magenta);
+  background: rgba(255, 0, 110, 0.12);
+  text-shadow: 0 0 6px rgba(255, 0, 110, 0.6);
+}
+.skin-btn.skin-retro.active {
+  color: var(--green);
+  background: rgba(0, 255, 136, 0.1);
 }
 
 .crt {
@@ -1143,6 +1213,191 @@ a {
   border-radius: 50%;
   background: var(--green);
   box-shadow: 0 0 6px var(--green);
+}
+
+/* ===== touch-pad (gamepad en pantalla, spec 10) ===== */
+.touch-pad {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  touch-action: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+.touch-dpad {
+  display: grid;
+  grid-template-columns: repeat(3, 52px);
+  grid-template-rows: repeat(3, 52px);
+  gap: 4px;
+  flex-shrink: 0;
+}
+.touch-dir {
+  grid-column: 2;
+  grid-row: 2;
+}
+.touch-dir-up {
+  grid-column: 2;
+  grid-row: 1;
+}
+.touch-dir-down {
+  grid-column: 2;
+  grid-row: 3;
+}
+.touch-dir-left {
+  grid-column: 1;
+  grid-row: 2;
+}
+.touch-dir-right {
+  grid-column: 3;
+  grid-row: 2;
+}
+.touch-actions {
+  display: flex;
+  gap: 12px;
+  flex-shrink: 0;
+}
+.touch-btn {
+  min-width: 44px;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--pixel);
+  font-size: 14px;
+  color: var(--ink);
+  background: rgba(20, 24, 46, 0.92);
+  border: 1px solid rgba(0, 245, 255, 0.35);
+  border-radius: 10px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+  touch-action: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+  cursor: pointer;
+  transition:
+    background 120ms,
+    color 120ms,
+    box-shadow 120ms;
+}
+.touch-btn.touch-action {
+  min-width: 60px;
+  min-height: 60px;
+  border-radius: 50%;
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  color: var(--cyan);
+  background: rgba(0, 245, 255, 0.14);
+  border-color: rgba(0, 245, 255, 0.5);
+}
+.touch-btn.active {
+  color: var(--bg);
+  background: var(--cyan);
+  box-shadow: 0 0 16px rgba(0, 245, 255, 0.7);
+}
+
+/* ===== layout móvil táctil (spec 10) ===== */
+.is-touch.av-player {
+  display: grid;
+  grid-template-columns: 1fr;
+  grid-template-areas: "stats" "screen" "skin" "pad" "buttons";
+  align-content: start;
+  gap: 10px;
+  height: 100dvh;
+  max-height: 100dvh;
+  padding: 8px 10px;
+  margin: 0;
+  overflow: hidden;
+  touch-action: pan-y;
+}
+.is-touch .player-hud,
+.is-touch .hud-actions {
+  display: contents;
+}
+.is-touch .hud-stats {
+  grid-area: stats;
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  padding: 6px 4px;
+  font-size: 11px;
+  overflow-x: auto;
+}
+.is-touch .hud-stat {
+  flex-direction: row;
+  align-items: baseline;
+  gap: 4px;
+  white-space: nowrap;
+}
+.is-touch .hud-stat .l {
+  font-size: 8px;
+}
+.is-touch .hud-stat .v {
+  font-size: 12px;
+}
+.is-touch .hud-skin {
+  grid-area: skin;
+  justify-content: center;
+}
+.is-touch .hud-buttons {
+  grid-area: buttons;
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+}
+.is-touch .hud-buttons .btn {
+  flex: 1;
+  padding: 10px 8px;
+  font-size: 10px;
+  min-height: 44px;
+}
+.is-touch .crt {
+  grid-area: screen;
+  padding: 8px;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.is-touch .crt-screen {
+  width: min(100%, calc((100dvh - 210px) * 4 / 3));
+  aspect-ratio: 4 / 3;
+}
+.is-touch .crt,
+.is-touch .crt-screen {
+  touch-action: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+.is-touch .crt-bottom {
+  display: none;
+}
+.is-touch .touch-pad {
+  grid-area: pad;
+}
+
+@media (orientation: landscape) {
+  .is-touch.av-player {
+    grid-template-columns: 1fr auto auto;
+    grid-template-areas: "stats skin buttons" "screen screen screen";
+    height: 100dvh;
+    max-height: 100dvh;
+  }
+  .is-touch .crt-screen {
+    width: min(100%, calc((100dvh - 110px) * 4 / 3));
+  }
+  .is-touch .touch-pad {
+    grid-area: screen;
+    position: relative;
+    align-self: end;
+    justify-self: stretch;
+    padding: 0 10px 10px;
+    pointer-events: none;
+    z-index: 6;
+  }
+  .is-touch .touch-pad .touch-dpad,
+  .is-touch .touch-pad .touch-actions {
+    pointer-events: auto;
+  }
 }
 
 /* fake in-screen game */

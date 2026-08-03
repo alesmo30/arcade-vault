@@ -1,4 +1,5 @@
-import type { EngineState, GameEngine, GameEngineFactory } from "../types";
+import type { ControlAction, EngineState, GameEngine, GameEngineFactory } from "../types";
+import { DEFAULT_SKIN, normalizeSkin, type SkinId } from "../skins";
 
 const W = 800;
 const H = 600;
@@ -20,7 +21,24 @@ const randInt = (min: number, max: number) => Math.floor(rand(min, max + 1));
 
 const CAPTURED_KEYS = new Set(["ArrowLeft", "ArrowRight", "ArrowUp", "Space"]);
 
-const COLORS = {
+type Palette = {
+  bg: string;
+  ship: string;
+  asteroid: string;
+  bullet: string;
+  thrust: string;
+  particle: string; // triplete "r, g, b" para componer rgba()
+  powerup: string;
+  hudText: string;
+  hudAccent: string;
+  overlayTitle: string;
+  overlaySub: string;
+  glow: boolean;
+};
+
+// clasico: valores originales del motor, copiados literales — línea base de regresión.
+const CLASICO: Palette = {
+  bg: "#000000",
   ship: "#00f5ff",
   asteroid: "#8a8fb5",
   bullet: "#e6e9ff",
@@ -31,14 +49,56 @@ const COLORS = {
   hudAccent: "#ff006e",
   overlayTitle: "#ff006e",
   overlaySub: "rgba(138, 143, 181, 0.85)",
+  glow: false,
+};
+
+// neon: alto contraste sobre negro puro, glow vía shadowBlur, saturación de la paleta CRT (globals.css).
+const NEON: Palette = {
+  bg: "#000000",
+  ship: "#00f5ff",
+  asteroid: "#7c5cff",
+  bullet: "#f5ff00",
+  thrust: "rgba(255, 149, 0, 0.9)",
+  particle: "0, 245, 255",
+  powerup: "#ff006e",
+  hudText: "#e6e9ff",
+  hudAccent: "#f5ff00",
+  overlayTitle: "#ff006e",
+  overlaySub: "rgba(0, 245, 255, 0.65)",
+  glow: true,
+};
+
+// retro: fósforo limitado, 3-4 tonos monocromos, sin glow, bordes duros.
+const RETRO: Palette = {
+  bg: "#001100",
+  ship: "#aaffcc",
+  asteroid: "#1f9b46",
+  bullet: "#33ff66",
+  thrust: "rgba(51, 255, 102, 0.85)",
+  particle: "51, 255, 102",
+  powerup: "#aaffcc",
+  hudText: "#33ff66",
+  hudAccent: "#aaffcc",
+  overlayTitle: "#aaffcc",
+  overlaySub: "#1f9b46",
+  glow: false,
+};
+
+const PALETTES: Record<SkinId, Palette> = {
+  clasico: CLASICO,
+  neon: NEON,
+  retro: RETRO,
 };
 
 type InternalStatus = "playing" | "dead" | "gameover";
 
-export const createAsteroidsEngine: GameEngineFactory = (canvas, onState) => {
+export const createAsteroidsEngine: GameEngineFactory = (canvas, onState, initialSkin) => {
   const ctxOrNull = canvas.getContext("2d");
   if (!ctxOrNull) throw new Error("2D context not available");
   const ctx = ctxOrNull;
+
+  let skin: SkinId = normalizeSkin(initialSkin ?? DEFAULT_SKIN);
+  let palette: Palette = PALETTES[skin];
 
   const keys: Record<string, boolean> = {};
   const justPressed: Record<string, boolean> = {};
@@ -49,18 +109,32 @@ export const createAsteroidsEngine: GameEngineFactory = (canvas, onState) => {
     return val;
   }
 
+  const applyKeyDown = (code: string) => {
+    if (!keys[code]) justPressed[code] = true;
+    keys[code] = true;
+  };
+  const applyKeyUp = (code: string) => {
+    keys[code] = false;
+  };
+
   const onKeyDown = (e: KeyboardEvent) => {
     if (CAPTURED_KEYS.has(e.code)) e.preventDefault();
-    if (!keys[e.code]) justPressed[e.code] = true;
-    keys[e.code] = true;
+    applyKeyDown(e.code);
   };
   const onKeyUp = (e: KeyboardEvent) => {
     if (CAPTURED_KEYS.has(e.code)) e.preventDefault();
-    keys[e.code] = false;
+    applyKeyUp(e.code);
   };
 
   window.addEventListener("keydown", onKeyDown);
   window.addEventListener("keyup", onKeyUp);
+
+  const ACTION_TO_CODE: Partial<Record<ControlAction, string>> = {
+    left: "ArrowLeft",
+    right: "ArrowRight",
+    up: "ArrowUp",
+    a: "Space",
+  };
 
   // ── Bullet ──────────────────────────────────────────────────────────────
   class Bullet {
@@ -88,10 +162,15 @@ export const createAsteroidsEngine: GameEngineFactory = (canvas, onState) => {
     }
 
     draw() {
-      ctx.fillStyle = COLORS.bullet;
+      ctx.fillStyle = palette.bullet;
+      if (palette.glow) {
+        ctx.shadowBlur = 8;
+        ctx.shadowColor = palette.bullet;
+      }
       ctx.beginPath();
       ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
       ctx.fill();
+      if (palette.glow) ctx.shadowBlur = 0;
     }
   }
 
@@ -147,14 +226,19 @@ export const createAsteroidsEngine: GameEngineFactory = (canvas, onState) => {
       ctx.save();
       ctx.translate(this.x, this.y);
       ctx.rotate(this.rot);
-      ctx.strokeStyle = COLORS.asteroid;
+      ctx.strokeStyle = palette.asteroid;
       ctx.lineWidth = 1.5;
       ctx.lineJoin = "round";
+      if (palette.glow) {
+        ctx.shadowBlur = 10;
+        ctx.shadowColor = palette.asteroid;
+      }
       ctx.beginPath();
       ctx.moveTo(this.verts[0][0], this.verts[0][1]);
       for (let i = 1; i < this.verts.length; i++) ctx.lineTo(this.verts[i][0], this.verts[i][1]);
       ctx.closePath();
       ctx.stroke();
+      if (palette.glow) ctx.shadowBlur = 0;
       ctx.restore();
     }
   }
@@ -191,12 +275,17 @@ export const createAsteroidsEngine: GameEngineFactory = (canvas, onState) => {
       ctx.save();
       ctx.translate(this.x, this.y);
       ctx.rotate(Math.PI / 4);
-      ctx.strokeStyle = COLORS.powerup;
+      ctx.strokeStyle = palette.powerup;
       ctx.lineWidth = 2;
+      if (palette.glow) {
+        ctx.shadowBlur = 10;
+        ctx.shadowColor = palette.powerup;
+      }
       const r = this.radius * pulse;
       ctx.strokeRect(-r, -r, r * 2, r * 2);
+      if (palette.glow) ctx.shadowBlur = 0;
       ctx.restore();
-      ctx.fillStyle = COLORS.powerup;
+      ctx.fillStyle = palette.powerup;
       ctx.font = "bold 12px monospace";
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
@@ -282,9 +371,13 @@ export const createAsteroidsEngine: GameEngineFactory = (canvas, onState) => {
       ctx.save();
       ctx.translate(this.x, this.y);
       ctx.rotate(this.angle);
-      ctx.strokeStyle = COLORS.ship;
+      ctx.strokeStyle = palette.ship;
       ctx.lineWidth = 1.5;
       ctx.lineJoin = "round";
+      if (palette.glow) {
+        ctx.shadowBlur = 12;
+        ctx.shadowColor = palette.ship;
+      }
 
       ctx.beginPath();
       ctx.moveTo(20, 0);
@@ -293,14 +386,20 @@ export const createAsteroidsEngine: GameEngineFactory = (canvas, onState) => {
       ctx.lineTo(-12, 9);
       ctx.closePath();
       ctx.stroke();
+      if (palette.glow) ctx.shadowBlur = 0;
 
       if (this.thrusting && Math.random() > 0.35) {
         ctx.beginPath();
         ctx.moveTo(-8, -4);
         ctx.lineTo(-8 - rand(6, 14), 0);
         ctx.lineTo(-8, 4);
-        ctx.strokeStyle = COLORS.thrust;
+        ctx.strokeStyle = palette.thrust;
+        if (palette.glow) {
+          ctx.shadowBlur = 10;
+          ctx.shadowColor = palette.thrust;
+        }
         ctx.stroke();
+        if (palette.glow) ctx.shadowBlur = 0;
       }
 
       ctx.restore();
@@ -337,7 +436,7 @@ export const createAsteroidsEngine: GameEngineFactory = (canvas, onState) => {
 
     draw() {
       const alpha = this.ttl / this.life;
-      ctx.strokeStyle = `rgba(${COLORS.particle},${alpha.toFixed(2)})`;
+      ctx.strokeStyle = `rgba(${palette.particle},${alpha.toFixed(2)})`;
       ctx.lineWidth = 1;
       ctx.beginPath();
       ctx.moveTo(this.x, this.y);
@@ -498,7 +597,7 @@ export const createAsteroidsEngine: GameEngineFactory = (canvas, onState) => {
     ctx.save();
     ctx.translate(x, y);
     ctx.rotate(-Math.PI / 2);
-    ctx.strokeStyle = COLORS.hudText;
+    ctx.strokeStyle = palette.hudText;
     ctx.lineWidth = 1.2;
     ctx.lineJoin = "round";
     ctx.beginPath();
@@ -512,7 +611,7 @@ export const createAsteroidsEngine: GameEngineFactory = (canvas, onState) => {
   }
 
   function drawHUD() {
-    ctx.fillStyle = COLORS.hudText;
+    ctx.fillStyle = palette.hudText;
     ctx.font = "15px monospace";
 
     ctx.textAlign = "left";
@@ -525,23 +624,24 @@ export const createAsteroidsEngine: GameEngineFactory = (canvas, onState) => {
 
     if (ship.tripleShot > 0) {
       ctx.textAlign = "left";
-      ctx.fillStyle = COLORS.hudAccent;
+      ctx.fillStyle = palette.hudAccent;
       ctx.fillText(`3x  ${ship.tripleShot.toFixed(1)}s`, 14, 46);
     }
   }
 
   function drawOverlay(title: string, sub: string) {
     ctx.textAlign = "center";
-    ctx.fillStyle = COLORS.overlayTitle;
+    ctx.fillStyle = palette.overlayTitle;
     ctx.font = "bold 46px monospace";
     ctx.fillText(title, W / 2, H / 2 - 18);
     ctx.font = "18px monospace";
-    ctx.fillStyle = COLORS.overlaySub;
+    ctx.fillStyle = palette.overlaySub;
     ctx.fillText(sub, W / 2, H / 2 + 22);
   }
 
   function draw() {
-    ctx.fillStyle = "#000";
+    ctx.shadowBlur = 0;
+    ctx.fillStyle = palette.bg;
     ctx.fillRect(0, 0, W, H);
 
     particles.forEach((p) => p.draw());
@@ -634,6 +734,17 @@ export const createAsteroidsEngine: GameEngineFactory = (canvas, onState) => {
         cancelAnimationFrame(rafId);
         rafId = null;
       }
+    },
+    setSkin(nextSkin) {
+      skin = normalizeSkin(nextSkin);
+      palette = PALETTES[skin];
+      draw();
+    },
+    setControl(action, pressed) {
+      const code = ACTION_TO_CODE[action];
+      if (!code) return;
+      if (pressed) applyKeyDown(code);
+      else applyKeyUp(code);
     },
   };
 

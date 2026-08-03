@@ -23,7 +23,9 @@ Consulta el índice antes de reevaluar un juego — si ya está analizado, el an
 
 `game-jam` (`.claude/agents/game-jam.md`) — el usuario da un tema, un juego o una descripción libre, y el agente escribe **dos specs completos y rivales del mismo juego** en `specs/game-jam/<gameid>/` (`spec-a-<enfoque>.md`, `spec-b-<enfoque>.md`) más un `README.md` comparativo con recomendación y supuestos. Los dos specs difieren en un eje estructural (modelo de fracaso, progresión, fuente de score, ritmo…), nunca en cosmética. Solo escribe dentro de `specs/game-jam/`: nada de código, SQL, CSS ni llamadas MCP.
 
-Flujo de decisión: `game-planner` (¿qué juego?) → `game-jam` (¿qué versión de ese juego?) → elegir variante y copiarla a `specs/NN-slug.md` con `Status: Aprobado` → `/spec-impl`. Para un solo spec sin variantes, sigue siendo `/add-game`.
+`skin-designer` (`.claude/agents/skin-designer.md`) — se ejecuta **después** de que el juego esté implementado. Recibe un game id o una descripción ("el de la serpiente"), audita si el juego deja elegir skin durante la partida y, si falta, la implementa. Skins mínimas: `clasico` (default, idéntico al look actual), `neon`, `retro`. Solo capa visual: nunca cambia mecánica, timing ni puntuación. El selector es React en el HUD, nunca dentro del canvas.
+
+Flujo de decisión: `game-planner` (¿qué juego?) → `game-jam` (¿qué versión de ese juego?) → elegir variante y copiarla a `specs/NN-slug.md` con `Status: Aprobado` → `/spec-impl` → `skin-designer` (¿tiene sus tres skins?). Para un solo spec sin variantes, sigue siendo `/add-game`.
 
 ## Current state
 
