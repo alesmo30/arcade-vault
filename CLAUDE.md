@@ -21,6 +21,10 @@ Su memoria está partida en dos y no se mezcla:
 
 Consulta el índice antes de reevaluar un juego — si ya está analizado, el análisis ya se pagó.
 
+`game-jam` (`.claude/agents/game-jam.md`) — el usuario da un tema, un juego o una descripción libre, y el agente escribe **dos specs completos y rivales del mismo juego** en `specs/game-jam/<gameid>/` (`spec-a-<enfoque>.md`, `spec-b-<enfoque>.md`) más un `README.md` comparativo con recomendación y supuestos. Los dos specs difieren en un eje estructural (modelo de fracaso, progresión, fuente de score, ritmo…), nunca en cosmética. Solo escribe dentro de `specs/game-jam/`: nada de código, SQL, CSS ni llamadas MCP.
+
+Flujo de decisión: `game-planner` (¿qué juego?) → `game-jam` (¿qué versión de ese juego?) → elegir variante y copiarla a `specs/NN-slug.md` con `Status: Aprobado` → `/spec-impl`. Para un solo spec sin variantes, sigue siendo `/add-game`.
+
 ## Current state
 
 Branch `main`, specs 01–09 written and merged (`specs/01…09`). Live: landing, `/games` catalog, game detail, player, `/salon-de-la-fama`, `/acerca-de` con Resend, sesión local falsa en `/auth`. Cuatro motores en `app/games/engines/`: asteroides, tetris, arkanoid, snake. Datos y leaderboard en Supabase (migraciones en `supabase/migrations/`).
