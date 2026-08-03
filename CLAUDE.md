@@ -25,7 +25,9 @@ Consulta el índice antes de reevaluar un juego — si ya está analizado, el an
 
 `skin-designer` (`.claude/agents/skin-designer.md`) — se ejecuta **después** de que el juego esté implementado. Recibe un game id o una descripción ("el de la serpiente"), audita si el juego deja elegir skin durante la partida y, si falta, la implementa. Skins mínimas: `clasico` (default, idéntico al look actual), `neon`, `retro`. Solo capa visual: nunca cambia mecánica, timing ni puntuación. El selector es React en el HUD, nunca dentro del canvas.
 
-Flujo de decisión: `game-planner` (¿qué juego?) → `game-jam` (¿qué versión de ese juego?) → elegir variante y copiarla a `specs/NN-slug.md` con `Status: Aprobado` → `/spec-impl` → `skin-designer` (¿tiene sus tres skins?). Para un solo spec sin variantes, sigue siendo `/add-game`.
+`game-porter` (`.claude/agents/game-porter.md`) — se ejecuta **después** de `/spec-impl`, para juegos **nuevos** solamente. Conecta el gamepad táctil ya existente (`app/components/touch-pad.tsx`, `app/games/engines/controls.ts`, spec 10) al motor del juego nuevo, implementando `setControl` para que reutilice la misma ruta interna que el teclado. Nunca toca `asteroides`, `tetris`, `arkanoid` ni `snake` — ya migrados — ni diseña UI de controles nueva.
+
+Flujo de decisión: `game-planner` (¿qué juego?) → `game-jam` (¿qué versión de ese juego?) → elegir variante y copiarla a `specs/NN-slug.md` con `Status: Aprobado` → `/spec-impl` → `game-porter` (¿responde al táctil?) → `skin-designer` (¿tiene sus tres skins?). Para un solo spec sin variantes, sigue siendo `/add-game`.
 
 ## Current state
 
