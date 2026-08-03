@@ -1,4 +1,5 @@
-import type { EngineState, GameEngine, GameEngineFactory } from "../types";
+import type { ControlAction, EngineState, GameEngine, GameEngineFactory } from "../types";
+import { DEFAULT_SKIN, normalizeSkin, type SkinId } from "../skins";
 
 const W = 800;
 const H = 600;
@@ -32,24 +33,82 @@ const ROW_COLORS_1: BlockColor[] = ["red", "yellow", "cyan", "magenta", "hotpink
 const ROW_COLORS_2: BlockColor[] = ["magenta", "cyan", "hotpink", "yellow", "green", "red"];
 const ROW_COLORS_4: BlockColor[] = ["cyan", "magenta", "green", "yellow", "hotpink", "red"];
 
-const COLORS: Record<BlockColor, string> & {
+type Palette = {
+  bg: string;
+  blocks: Record<BlockColor, string>;
   paddle: string;
   ball: string;
+  particleGlow: boolean;
   hudText: string;
   overlayTitle: string;
   overlaySub: string;
-} = {
-  red: "#ff3b3b",
-  yellow: "#f5ff00",
-  cyan: "#00f5ff",
-  magenta: "#ff006e",
-  hotpink: "#ff4fd8",
-  green: "#00ff88",
+  glow: boolean;
+};
+
+// clasico: valores originales del motor, copiados literales — línea base de regresión.
+const CLASICO: Palette = {
+  bg: "#000000",
+  blocks: {
+    red: "#ff3b3b",
+    yellow: "#f5ff00",
+    cyan: "#00f5ff",
+    magenta: "#ff006e",
+    hotpink: "#ff4fd8",
+    green: "#00ff88",
+  },
   paddle: "#e6e9ff",
   ball: "#ff006e",
+  particleGlow: false,
   hudText: "#e6e9ff",
   overlayTitle: "#ff006e",
   overlaySub: "rgba(138, 143, 181, 0.85)",
+  glow: false,
+};
+
+// neon: alto contraste sobre negro puro, glow vía shadowBlur, saturación de la paleta CRT (globals.css).
+const NEON: Palette = {
+  bg: "#000000",
+  blocks: {
+    red: "#ff3b3b",
+    yellow: "#f5ff00",
+    cyan: "#00f5ff",
+    magenta: "#ff006e",
+    hotpink: "#ff4fd8",
+    green: "#00ff88",
+  },
+  paddle: "#00f5ff",
+  ball: "#ff006e",
+  particleGlow: true,
+  hudText: "#e6e9ff",
+  overlayTitle: "#ff006e",
+  overlaySub: "rgba(0, 245, 255, 0.65)",
+  glow: true,
+};
+
+// retro: fósforo limitado, 3-4 tonos monocromos, sin glow, bordes duros.
+const RETRO: Palette = {
+  bg: "#001100",
+  blocks: {
+    red: "#1f9b46",
+    yellow: "#aaffcc",
+    cyan: "#33ff66",
+    magenta: "#1f9b46",
+    hotpink: "#33ff66",
+    green: "#aaffcc",
+  },
+  paddle: "#33ff66",
+  ball: "#aaffcc",
+  particleGlow: false,
+  hudText: "#33ff66",
+  overlayTitle: "#aaffcc",
+  overlaySub: "#1f9b46",
+  glow: false,
+};
+
+const PALETTES: Record<SkinId, Palette> = {
+  clasico: CLASICO,
+  neon: NEON,
+  retro: RETRO,
 };
 
 type Level = { speed: number; blocks: { col: number; row: number; color: BlockColor }[] };
@@ -106,10 +165,13 @@ type InternalStatus = "playing" | "dead" | "gameover";
 
 const rand = (min: number, max: number) => min + Math.random() * (max - min);
 
-export const createArkanoidEngine: GameEngineFactory = (canvas, onState) => {
+export const createArkanoidEngine: GameEngineFactory = (canvas, onState, initialSkin) => {
   const ctxOrNull = canvas.getContext("2d");
   if (!ctxOrNull) throw new Error("2D context not available");
   const ctx = ctxOrNull;
+
+  let skin: SkinId = normalizeSkin(initialSkin ?? DEFAULT_SKIN);
+  let palette: Palette = PALETTES[skin];
 
   const keys: Record<string, boolean> = {};
 
@@ -124,6 +186,11 @@ export const createArkanoidEngine: GameEngineFactory = (canvas, onState) => {
 
   window.addEventListener("keydown", onKeyDown);
   window.addEventListener("keyup", onKeyUp);
+
+  const ACTION_TO_CODE: Partial<Record<ControlAction, string>> = {
+    left: "ArrowLeft",
+    right: "ArrowRight",
+  };
 
   // ── Block ───────────────────────────────────────────────────────────────
   type Block = { x: number; y: number; w: number; h: number; color: BlockColor; alive: boolean };
@@ -158,11 +225,16 @@ export const createArkanoidEngine: GameEngineFactory = (canvas, onState) => {
       if (this.ttl <= 0) this.dead = true;
     }
 
-    draw() {
+    draw(glow: boolean) {
       const alpha = Math.max(0, this.ttl / this.life);
       ctx.fillStyle = this.color;
       ctx.globalAlpha = alpha;
+      if (glow) {
+        ctx.shadowBlur = 8;
+        ctx.shadowColor = this.color;
+      }
       ctx.fillRect(this.x - 2, this.y - 2, 4, 4);
+      if (glow) ctx.shadowBlur = 0;
       ctx.globalAlpha = 1;
     }
   }
@@ -227,7 +299,7 @@ export const createArkanoidEngine: GameEngineFactory = (canvas, onState) => {
   }
 
   function explode(block: Block) {
-    const color = COLORS[block.color];
+    const color = palette.blocks[block.color];
     const cx = block.x + block.w / 2;
     const cy = block.y + block.h / 2;
     for (let i = 0; i < PARTICLES_PER_BLOCK; i++) particles.push(new Particle(cx, cy, color));
@@ -302,33 +374,50 @@ export const createArkanoidEngine: GameEngineFactory = (canvas, onState) => {
   }
 
   function drawBlock(block: Block) {
-    ctx.fillStyle = COLORS[block.color];
+    const color = palette.blocks[block.color];
+    ctx.fillStyle = color;
+    if (palette.glow) {
+      ctx.shadowBlur = 8;
+      ctx.shadowColor = color;
+    }
     ctx.fillRect(block.x + 1, block.y + 1, block.w - 2, block.h - 2);
+    if (palette.glow) ctx.shadowBlur = 0;
   }
 
   function draw() {
-    ctx.fillStyle = "#000";
+    ctx.shadowBlur = 0;
+    ctx.fillStyle = palette.bg;
     ctx.fillRect(0, 0, W, H);
 
     for (const block of blocks) if (block.alive) drawBlock(block);
 
-    particles.forEach((p) => p.draw());
+    particles.forEach((p) => p.draw(palette.particleGlow));
 
-    ctx.fillStyle = COLORS.paddle;
+    ctx.fillStyle = palette.paddle;
+    if (palette.glow) {
+      ctx.shadowBlur = 10;
+      ctx.shadowColor = palette.paddle;
+    }
     ctx.fillRect(paddle.x, paddle.y, paddle.w, paddle.h);
+    if (palette.glow) ctx.shadowBlur = 0;
 
-    ctx.fillStyle = COLORS.ball;
+    ctx.fillStyle = palette.ball;
+    if (palette.glow) {
+      ctx.shadowBlur = 12;
+      ctx.shadowColor = palette.ball;
+    }
     ctx.beginPath();
     ctx.arc(ball.x + ball.w / 2, ball.y + ball.h / 2, ball.w / 2, 0, Math.PI * 2);
     ctx.fill();
+    if (palette.glow) ctx.shadowBlur = 0;
 
     if (state === "gameover") {
       ctx.textAlign = "center";
-      ctx.fillStyle = COLORS.overlayTitle;
+      ctx.fillStyle = palette.overlayTitle;
       ctx.font = "bold 46px monospace";
       ctx.fillText("GAME OVER", W / 2, H / 2 - 18);
       ctx.font = "18px monospace";
-      ctx.fillStyle = COLORS.overlaySub;
+      ctx.fillStyle = palette.overlaySub;
       ctx.fillText(`PUNTAJE: ${score}`, W / 2, H / 2 + 22);
     }
   }
@@ -411,6 +500,16 @@ export const createArkanoidEngine: GameEngineFactory = (canvas, onState) => {
         cancelAnimationFrame(rafId);
         rafId = null;
       }
+    },
+    setSkin(nextSkin) {
+      skin = normalizeSkin(nextSkin);
+      palette = PALETTES[skin];
+      draw();
+    },
+    setControl(action, pressed) {
+      const code = ACTION_TO_CODE[action];
+      if (!code) return;
+      keys[code] = pressed;
     },
   };
 

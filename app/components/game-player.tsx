@@ -1,13 +1,58 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { useSession } from "@/app/auth-context";
 import type { Game } from "@/app/data";
 import { saveScore } from "@/app/games/actions";
 import { ENGINES } from "@/app/games/engines/registry";
 import { GameCanvas } from "@/app/games/engines/game-canvas";
-import type { EngineState, GameEngine } from "@/app/games/engines/types";
+import { CONTROLS } from "@/app/games/engines/controls";
+import { DEFAULT_SKIN, SKINS, normalizeSkin, type SkinId } from "@/app/games/engines/skins";
+import type { ControlAction, EngineState, GameEngine } from "@/app/games/engines/types";
+import { TouchPad } from "@/app/components/touch-pad";
+import { useCoarsePointer } from "@/app/components/use-coarse-pointer";
+
+const SKIN_STORAGE_KEY = "av_skin";
+const skinListeners = new Set<() => void>();
+let cachedSkin: SkinId = DEFAULT_SKIN;
+let skinHydrated = false;
+
+function readStoredSkin(): SkinId {
+  try {
+    return normalizeSkin(localStorage.getItem(SKIN_STORAGE_KEY));
+  } catch {
+    return DEFAULT_SKIN;
+  }
+}
+
+function getSkinSnapshot(): SkinId {
+  if (!skinHydrated) {
+    cachedSkin = readStoredSkin();
+    skinHydrated = true;
+  }
+  return cachedSkin;
+}
+
+function getSkinServerSnapshot(): SkinId {
+  return DEFAULT_SKIN;
+}
+
+function subscribeSkin(callback: () => void) {
+  skinListeners.add(callback);
+  return () => skinListeners.delete(callback);
+}
+
+function setStoredSkin(next: SkinId) {
+  cachedSkin = next;
+  skinHydrated = true;
+  try {
+    localStorage.setItem(SKIN_STORAGE_KEY, next);
+  } catch {
+    // localStorage puede fallar (modo privado, cuotas); la skin sigue funcionando en memoria.
+  }
+  skinListeners.forEach((listener) => listener());
+}
 
 const FIXED_SCORE = 28450;
 const FIXED_LIVES = 3;
@@ -16,6 +61,14 @@ const FIXED_LEVEL = "01";
 export function GamePlayer({ game }: { game: Game }) {
   const { user } = useSession();
   const hasEngine = !!ENGINES[game.id];
+  const isTouch = useCoarsePointer();
+  const padLayout = CONTROLS[game.id];
+  const showPad = hasEngine && isTouch && !!padLayout;
+
+  useEffect(() => {
+    document.body.classList.toggle("is-touch-game", isTouch);
+    return () => document.body.classList.remove("is-touch-game");
+  }, [isTouch]);
 
   const engineRef = useRef<GameEngine>(null);
   const [engineState, setEngineState] = useState<EngineState | null>(null);
@@ -26,6 +79,10 @@ export function GamePlayer({ game }: { game: Game }) {
   const [name, setName] = useState(user ? user.name : "INVITADO");
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [saveError, setSaveError] = useState<string | null>(null);
+
+  // Igual que useSession en auth-context: server siempre ve DEFAULT_SKIN, el cliente hidrata desde localStorage.
+  const skin = useSyncExternalStore(subscribeSkin, getSkinSnapshot, getSkinServerSnapshot);
+  const selectSkin = (next: SkinId) => setStoredSkin(next);
 
   const score = hasEngine ? (engineState?.score ?? 0) : FIXED_SCORE;
   const lives = hasEngine ? (engineState?.lives ?? 0) : FIXED_LIVES;
@@ -40,6 +97,10 @@ export function GamePlayer({ game }: { game: Game }) {
     } else {
       setMockPaused((p) => !p);
     }
+  };
+
+  const handleControl = (action: ControlAction, pressed: boolean) => {
+    engineRef.current?.setControl?.(action, pressed);
   };
 
   const endGame = () => {
@@ -76,9 +137,9 @@ export function GamePlayer({ game }: { game: Game }) {
   };
 
   return (
-    <div className="av-player fade-in">
+    <div className={`av-player fade-in${isTouch ? " is-touch" : ""}`}>
       <div className="player-hud">
-        <div style={{ display: "flex", gap: 24, flexWrap: "wrap" }}>
+        <div className="hud-stats" style={{ display: "flex", gap: 24, flexWrap: "wrap" }}>
           <div className="hud-stat">
             <div className="l">Jugador</div>
             <div className="v" style={{ color: "var(--ink)" }}>
@@ -99,22 +160,42 @@ export function GamePlayer({ game }: { game: Game }) {
           </div>
         </div>
         <div className="hud-actions">
-          <button className="btn yellow" onClick={togglePause}>
-            {paused ? "REANUDAR" : "PAUSA"}
-          </button>
-          <button className="btn magenta" onClick={endGame}>
-            FIN
-          </button>
-          <Link href={`/games/${game.id}`} className="btn ghost">
-            SALIR
-          </Link>
+          {hasEngine && (
+            <div className="skin-select hud-skin" role="group" aria-label="Elegir skin">
+              <span className="skin-select-label">SKIN</span>
+              <div className="skin-select-options">
+                {SKINS.map((s) => (
+                  <button
+                    key={s.id}
+                    type="button"
+                    className={`skin-btn skin-${s.id}${skin === s.id ? " active" : ""}`}
+                    aria-pressed={skin === s.id}
+                    onClick={() => selectSkin(s.id)}
+                  >
+                    {s.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+          <div className="hud-buttons">
+            <button className="btn yellow" onClick={togglePause}>
+              {paused ? "REANUDAR" : "PAUSA"}
+            </button>
+            <button className="btn magenta" onClick={endGame}>
+              FIN
+            </button>
+            <Link href={`/games/${game.id}`} className="btn ghost">
+              SALIR
+            </Link>
+          </div>
         </div>
       </div>
 
       <div className="crt">
         <div className="crt-screen">
           {hasEngine ? (
-            <GameCanvas ref={engineRef} gameId={game.id} onState={setEngineState} />
+            <GameCanvas ref={engineRef} gameId={game.id} skin={skin} onState={setEngineState} />
           ) : (
             <div className="game-arena">
               <div className="grid-floor"></div>
@@ -151,6 +232,8 @@ export function GamePlayer({ game }: { game: Game }) {
           <span>CARGA · 1MB</span>
         </div>
       </div>
+
+      {showPad && <TouchPad layout={padLayout} onControl={handleControl} />}
 
       {over && (
         <div className="modal-bd">

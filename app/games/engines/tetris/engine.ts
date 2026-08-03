@@ -1,4 +1,5 @@
-import type { EngineState, GameEngine, GameEngineFactory } from "../types";
+import type { ControlAction, EngineState, GameEngine, GameEngineFactory } from "../types";
+import { DEFAULT_SKIN, normalizeSkin, type SkinId } from "../skins";
 
 const W = 800;
 const H = 600;
@@ -56,17 +57,21 @@ const PIECES: Shape[] = [
 
 const CAPTURED_KEYS = new Set(["ArrowLeft", "ArrowRight", "ArrowDown", "ArrowUp", "KeyX", "Space"]);
 
-const COLORS: Record<number, string> = {
-  1: "#00f5ff", // I - cyan
-  2: "#f5ff00", // O - yellow
-  3: "#ff006e", // T - magenta
-  4: "#00ff88", // S - green
-  5: "#ff3b3b", // Z - red
-  6: "#7c5cff", // J - indigo
-  7: "#ff9500", // L - orange
+type Palette = {
+  bg: string;
+  grid: string;
+  boardBorder: string;
+  hudText: string;
+  hudAccent: string;
+  overlayTitle: string;
+  overlaySub: string;
+  pieces: Record<number, string>;
+  blockHighlight: string;
+  glow: boolean;
 };
 
-const PALETTE = {
+// clasico: valores originales del motor, copiados literales — línea base de regresión.
+const CLASICO: Palette = {
   bg: "#07070d",
   grid: "rgba(74, 79, 112, 0.35)",
   boardBorder: "#4a4f70",
@@ -74,6 +79,67 @@ const PALETTE = {
   hudAccent: "#f5ff00",
   overlayTitle: "#ff006e",
   overlaySub: "rgba(138, 143, 181, 0.85)",
+  pieces: {
+    1: "#00f5ff", // I - cyan
+    2: "#f5ff00", // O - yellow
+    3: "#ff006e", // T - magenta
+    4: "#00ff88", // S - green
+    5: "#ff3b3b", // Z - red
+    6: "#7c5cff", // J - indigo
+    7: "#ff9500", // L - orange
+  },
+  blockHighlight: "rgba(255,255,255,0.12)",
+  glow: false,
+};
+
+// neon: alto contraste sobre negro puro, glow vía shadowBlur, saturación de la paleta CRT (globals.css).
+const NEON: Palette = {
+  bg: "#000000",
+  grid: "rgba(0, 245, 255, 0.18)",
+  boardBorder: "#00f5ff",
+  hudText: "#e6e9ff",
+  hudAccent: "#f5ff00",
+  overlayTitle: "#ff006e",
+  overlaySub: "rgba(0, 245, 255, 0.65)",
+  pieces: {
+    1: "#00f5ff", // I - cyan
+    2: "#f5ff00", // O - yellow
+    3: "#ff006e", // T - magenta
+    4: "#00ff88", // S - green
+    5: "#ff3b3b", // Z - red
+    6: "#ffcf3a", // J - gold
+    7: "#ff9500", // L - orange
+  },
+  blockHighlight: "rgba(255,255,255,0.3)",
+  glow: true,
+};
+
+// retro: fósforo limitado, 3-4 tonos monocromos, sin glow, bordes duros.
+const RETRO: Palette = {
+  bg: "#001100",
+  grid: "rgba(0, 90, 40, 0.6)",
+  boardBorder: "#33ff66",
+  hudText: "#33ff66",
+  hudAccent: "#aaffcc",
+  overlayTitle: "#aaffcc",
+  overlaySub: "#1f9b46",
+  pieces: {
+    1: "#1f9b46", // I
+    2: "#aaffcc", // O
+    3: "#33ff66", // T
+    4: "#1f9b46", // S
+    5: "#33ff66", // Z
+    6: "#aaffcc", // J
+    7: "#1f9b46", // L
+  },
+  blockHighlight: "transparent",
+  glow: false,
+};
+
+const PALETTES: Record<SkinId, Palette> = {
+  clasico: CLASICO,
+  neon: NEON,
+  retro: RETRO,
 };
 
 type InternalStatus = "playing" | "gameover";
@@ -101,10 +167,13 @@ function rotateCW(shape: Shape): Shape {
   return result;
 }
 
-export const createTetrisEngine: GameEngineFactory = (canvas, onState) => {
+export const createTetrisEngine: GameEngineFactory = (canvas, onState, initialSkin) => {
   const ctxOrNull = canvas.getContext("2d");
   if (!ctxOrNull) throw new Error("2D context not available");
   const ctx = ctxOrNull;
+
+  let skin: SkinId = normalizeSkin(initialSkin ?? DEFAULT_SKIN);
+  let palette: Palette = PALETTES[skin];
 
   let board: number[][];
   let current: Piece;
@@ -228,10 +297,9 @@ export const createTetrisEngine: GameEngineFactory = (canvas, onState) => {
     spawn();
   }
 
-  const onKeyDown = (e: KeyboardEvent) => {
-    if (CAPTURED_KEYS.has(e.code)) e.preventDefault();
+  function applyAction(code: string) {
     if (state !== "playing" || externalPaused) return;
-    switch (e.code) {
+    switch (code) {
       case "ArrowLeft":
         if (!collide(current.shape, current.x - 1, current.y)) current.x--;
         break;
@@ -250,9 +318,22 @@ export const createTetrisEngine: GameEngineFactory = (canvas, onState) => {
         break;
     }
     maybeEmit();
+  }
+
+  const onKeyDown = (e: KeyboardEvent) => {
+    if (CAPTURED_KEYS.has(e.code)) e.preventDefault();
+    applyAction(e.code);
   };
 
   window.addEventListener("keydown", onKeyDown);
+
+  const ACTION_TO_CODE: Partial<Record<ControlAction, string>> = {
+    left: "ArrowLeft",
+    right: "ArrowRight",
+    down: "ArrowDown",
+    a: "ArrowUp",
+    b: "Space",
+  };
 
   function update(dt: number) {
     if (state !== "playing") return;
@@ -269,16 +350,24 @@ export const createTetrisEngine: GameEngineFactory = (canvas, onState) => {
 
   function drawBlock(x: number, y: number, colorIndex: number, size: number, alpha = 1) {
     if (!colorIndex) return;
+    const color = palette.pieces[colorIndex];
     ctx.globalAlpha = alpha;
-    ctx.fillStyle = COLORS[colorIndex];
+    if (palette.glow) {
+      ctx.shadowBlur = 12;
+      ctx.shadowColor = color;
+    }
+    ctx.fillStyle = color;
     ctx.fillRect(BOARD_X + x * size + 1, BOARD_Y + y * size + 1, size - 2, size - 2);
-    ctx.fillStyle = "rgba(255,255,255,0.12)";
-    ctx.fillRect(BOARD_X + x * size + 1, BOARD_Y + y * size + 1, size - 2, 4);
+    if (palette.glow) ctx.shadowBlur = 0;
+    if (palette.blockHighlight !== "transparent") {
+      ctx.fillStyle = palette.blockHighlight;
+      ctx.fillRect(BOARD_X + x * size + 1, BOARD_Y + y * size + 1, size - 2, 4);
+    }
     ctx.globalAlpha = 1;
   }
 
   function drawGrid() {
-    ctx.strokeStyle = PALETTE.grid;
+    ctx.strokeStyle = palette.grid;
     ctx.lineWidth = 0.5;
     for (let c = 0; c <= COLS; c++) {
       ctx.beginPath();
@@ -295,7 +384,7 @@ export const createTetrisEngine: GameEngineFactory = (canvas, onState) => {
   }
 
   function drawBoard() {
-    ctx.strokeStyle = PALETTE.boardBorder;
+    ctx.strokeStyle = palette.boardBorder;
     ctx.lineWidth = 2;
     ctx.strokeRect(BOARD_X - 1, BOARD_Y - 1, COLS * BLOCK + 2, ROWS * BLOCK + 2);
 
@@ -327,7 +416,7 @@ export const createTetrisEngine: GameEngineFactory = (canvas, onState) => {
     for (let r = 0; r < shape.length; r++) {
       for (let c = 0; c < shape[r].length; c++) {
         if (!shape[r][c]) continue;
-        ctx.fillStyle = COLORS[shape[r][c]];
+        ctx.fillStyle = palette.pieces[shape[r][c]];
         ctx.fillRect(px + (offX + c) * NB + 1, py + (offY + r) * NB + 1, NB - 2, NB - 2);
       }
     }
@@ -335,30 +424,30 @@ export const createTetrisEngine: GameEngineFactory = (canvas, onState) => {
 
   function drawPanel() {
     ctx.textAlign = "left";
-    ctx.fillStyle = PALETTE.hudText;
+    ctx.fillStyle = palette.hudText;
     ctx.font = "14px monospace";
 
     ctx.fillText("SIGUIENTE", PANEL_X, BOARD_Y + 24);
-    ctx.strokeStyle = PALETTE.boardBorder;
+    ctx.strokeStyle = palette.boardBorder;
     ctx.lineWidth = 1.5;
     ctx.strokeRect(PANEL_X, BOARD_Y + 36, 80, 80);
     drawNextPreview(PANEL_X, BOARD_Y + 36);
 
-    ctx.fillStyle = PALETTE.hudText;
+    ctx.fillStyle = palette.hudText;
     ctx.fillText("LÍNEAS", PANEL_X, BOARD_Y + 150);
-    ctx.fillStyle = PALETTE.hudAccent;
+    ctx.fillStyle = palette.hudAccent;
     ctx.font = "bold 20px monospace";
     ctx.fillText(String(lines), PANEL_X, BOARD_Y + 176);
 
-    ctx.fillStyle = PALETTE.hudText;
+    ctx.fillStyle = palette.hudText;
     ctx.font = "14px monospace";
     ctx.fillText("NIVEL", PANEL_X, BOARD_Y + 210);
-    ctx.fillStyle = PALETTE.hudAccent;
+    ctx.fillStyle = palette.hudAccent;
     ctx.font = "bold 20px monospace";
     ctx.fillText(String(level), PANEL_X, BOARD_Y + 236);
 
     ctx.textAlign = "center";
-    ctx.fillStyle = PALETTE.hudText;
+    ctx.fillStyle = palette.hudText;
     ctx.font = "bold 16px monospace";
     ctx.save();
     ctx.translate(125, H / 2);
@@ -369,16 +458,17 @@ export const createTetrisEngine: GameEngineFactory = (canvas, onState) => {
 
   function drawOverlay(title: string, sub: string) {
     ctx.textAlign = "center";
-    ctx.fillStyle = PALETTE.overlayTitle;
+    ctx.fillStyle = palette.overlayTitle;
     ctx.font = "bold 46px monospace";
     ctx.fillText(title, W / 2, H / 2 - 18);
     ctx.font = "18px monospace";
-    ctx.fillStyle = PALETTE.overlaySub;
+    ctx.fillStyle = palette.overlaySub;
     ctx.fillText(sub, W / 2, H / 2 + 22);
   }
 
   function draw() {
-    ctx.fillStyle = PALETTE.bg;
+    ctx.shadowBlur = 0;
+    ctx.fillStyle = palette.bg;
     ctx.fillRect(0, 0, W, H);
 
     drawBoard();
@@ -465,6 +555,17 @@ export const createTetrisEngine: GameEngineFactory = (canvas, onState) => {
         cancelAnimationFrame(rafId);
         rafId = null;
       }
+    },
+    setSkin(nextSkin) {
+      skin = normalizeSkin(nextSkin);
+      palette = PALETTES[skin];
+      draw();
+    },
+    setControl(action, pressed) {
+      if (!pressed) return;
+      const code = ACTION_TO_CODE[action];
+      if (!code) return;
+      applyAction(code);
     },
   };
 

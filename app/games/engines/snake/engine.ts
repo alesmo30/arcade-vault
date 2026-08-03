@@ -1,4 +1,5 @@
-import type { EngineState, GameEngine, GameEngineFactory } from "../types";
+import type { ControlAction, EngineState, GameEngine, GameEngineFactory } from "../types";
+import { DEFAULT_SKIN, normalizeSkin, type SkinId } from "../skins";
 
 const W = 800;
 const H = 600;
@@ -24,7 +25,21 @@ const randInt = (min: number, max: number) => Math.floor(rand(min, max + 1));
 
 const CAPTURED_KEYS = new Set(["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"]);
 
-const COLORS = {
+type Palette = {
+  bg: string;
+  grid: string;
+  body: string;
+  bodyStroke: string;
+  head: string;
+  fallbackFruit: string;
+  hudAccent: string;
+  overlayTitle: string;
+  overlaySub: string;
+  glow: boolean;
+};
+
+// clasico: valores originales del motor, copiados literales — línea base de regresión.
+const CLASICO: Palette = {
   bg: "#050f0a",
   grid: "rgba(0, 255, 136, 0.05)",
   body: "#00ff88",
@@ -34,6 +49,41 @@ const COLORS = {
   hudAccent: "#ff006e",
   overlayTitle: "#00ff88",
   overlaySub: "rgba(212, 255, 233, 0.85)",
+  glow: false,
+};
+
+// neon: alto contraste sobre negro puro, glow vía shadowBlur, saturación de la paleta CRT (globals.css).
+const NEON: Palette = {
+  bg: "#000000",
+  grid: "rgba(0, 245, 255, 0.15)",
+  body: "#00f5ff",
+  bodyStroke: "#00ff88",
+  head: "#f5ff00",
+  fallbackFruit: "#ff006e",
+  hudAccent: "#ff006e",
+  overlayTitle: "#00f5ff",
+  overlaySub: "rgba(245, 255, 0, 0.75)",
+  glow: true,
+};
+
+// retro: fósforo verde limitado, sin glow, bordes duros.
+const RETRO: Palette = {
+  bg: "#001100",
+  grid: "rgba(0, 90, 40, 0.6)",
+  body: "#1f9b46",
+  bodyStroke: "#33ff66",
+  head: "#aaffcc",
+  fallbackFruit: "#33ff66",
+  hudAccent: "#aaffcc",
+  overlayTitle: "#aaffcc",
+  overlaySub: "#1f9b46",
+  glow: false,
+};
+
+const PALETTES: Record<SkinId, Palette> = {
+  clasico: CLASICO,
+  neon: NEON,
+  retro: RETRO,
 };
 
 // ── Atlas de frutas (portado de references/templates/snake-assets/sprites.js) ──
@@ -104,10 +154,13 @@ type Fruit = { pos: Cell; tier: Tier; name: string };
 
 type InternalStatus = "playing" | "gameover";
 
-export const createSnakeEngine: GameEngineFactory = (canvas, onState) => {
+export const createSnakeEngine: GameEngineFactory = (canvas, onState, initialSkin) => {
   const ctxOrNull = canvas.getContext("2d");
   if (!ctxOrNull) throw new Error("2D context not available");
   const ctx = ctxOrNull;
+
+  let skin: SkinId = normalizeSkin(initialSkin ?? DEFAULT_SKIN);
+  let palette: Palette = PALETTES[skin];
 
   const keys: Record<string, boolean> = {};
 
@@ -119,11 +172,10 @@ export const createSnakeEngine: GameEngineFactory = (canvas, onState) => {
     return null;
   };
 
-  const onKeyDown = (e: KeyboardEvent) => {
-    if (CAPTURED_KEYS.has(e.code)) e.preventDefault();
-    if (keys[e.code]) return;
-    keys[e.code] = true;
-    const dir = dirForKey(e.code);
+  const applyKeyDown = (code: string) => {
+    if (keys[code]) return;
+    keys[code] = true;
+    const dir = dirForKey(code);
     if (!dir) return;
     const last = dirQueue.length > 0 ? dirQueue[dirQueue.length - 1] : direction;
     if (opposite(dir, last)) return;
@@ -131,13 +183,28 @@ export const createSnakeEngine: GameEngineFactory = (canvas, onState) => {
     if (dirQueue.length >= DIR_QUEUE_MAX) return;
     dirQueue.push(dir);
   };
+  const applyKeyUp = (code: string) => {
+    keys[code] = false;
+  };
+
+  const onKeyDown = (e: KeyboardEvent) => {
+    if (CAPTURED_KEYS.has(e.code)) e.preventDefault();
+    applyKeyDown(e.code);
+  };
   const onKeyUp = (e: KeyboardEvent) => {
     if (CAPTURED_KEYS.has(e.code)) e.preventDefault();
-    keys[e.code] = false;
+    applyKeyUp(e.code);
   };
 
   window.addEventListener("keydown", onKeyDown);
   window.addEventListener("keyup", onKeyUp);
+
+  const ACTION_TO_CODE: Partial<Record<ControlAction, string>> = {
+    left: "ArrowLeft",
+    right: "ArrowRight",
+    up: "ArrowUp",
+    down: "ArrowDown",
+  };
 
   // ── Sprite de frutas ──────────────────────────────────────────────────
   const fruitImage = new Image();
@@ -258,7 +325,7 @@ export const createSnakeEngine: GameEngineFactory = (canvas, onState) => {
   }
 
   function drawGrid() {
-    ctx.strokeStyle = COLORS.grid;
+    ctx.strokeStyle = palette.grid;
     ctx.lineWidth = 1;
     for (let x = 0; x <= COLS; x++) {
       ctx.beginPath();
@@ -281,10 +348,15 @@ export const createSnakeEngine: GameEngineFactory = (canvas, onState) => {
       const rect = FRUIT_ATLAS[fruit.name];
       ctx.drawImage(fruitImage, rect.x, rect.y, rect.w, rect.h, px + 2, py + 2, CELL - 4, CELL - 4);
     } else {
-      ctx.fillStyle = COLORS.fallbackFruit;
+      if (palette.glow) {
+        ctx.shadowBlur = 10;
+        ctx.shadowColor = palette.fallbackFruit;
+      }
+      ctx.fillStyle = palette.fallbackFruit;
       ctx.beginPath();
       ctx.arc(px + CELL / 2, py + CELL / 2, CELL / 2 - 3, 0, Math.PI * 2);
       ctx.fill();
+      if (palette.glow) ctx.shadowBlur = 0;
     }
   }
 
@@ -293,26 +365,33 @@ export const createSnakeEngine: GameEngineFactory = (canvas, onState) => {
       const s = body[i];
       const px = s.x * CELL;
       const py = s.y * CELL;
-      ctx.fillStyle = i === 0 ? COLORS.head : COLORS.body;
-      ctx.strokeStyle = COLORS.bodyStroke;
+      const fill = i === 0 ? palette.head : palette.body;
+      if (palette.glow) {
+        ctx.shadowBlur = i === 0 ? 14 : 8;
+        ctx.shadowColor = fill;
+      }
+      ctx.fillStyle = fill;
+      ctx.strokeStyle = palette.bodyStroke;
       ctx.lineWidth = 1.5;
       ctx.fillRect(px + 2, py + 2, CELL - 4, CELL - 4);
       ctx.strokeRect(px + 2, py + 2, CELL - 4, CELL - 4);
+      if (palette.glow) ctx.shadowBlur = 0;
     }
   }
 
   function drawOverlay(title: string, sub: string) {
     ctx.textAlign = "center";
-    ctx.fillStyle = COLORS.overlayTitle;
+    ctx.fillStyle = palette.overlayTitle;
     ctx.font = "bold 46px monospace";
     ctx.fillText(title, W / 2, H / 2 - 18);
     ctx.font = "18px monospace";
-    ctx.fillStyle = COLORS.overlaySub;
+    ctx.fillStyle = palette.overlaySub;
     ctx.fillText(sub, W / 2, H / 2 + 22);
   }
 
   function draw() {
-    ctx.fillStyle = COLORS.bg;
+    ctx.shadowBlur = 0;
+    ctx.fillStyle = palette.bg;
     ctx.fillRect(0, 0, W, H);
     drawGrid();
     drawFruit();
@@ -400,6 +479,17 @@ export const createSnakeEngine: GameEngineFactory = (canvas, onState) => {
         rafId = null;
       }
       fruitImage.onload = null;
+    },
+    setSkin(nextSkin) {
+      skin = normalizeSkin(nextSkin);
+      palette = PALETTES[skin];
+      draw();
+    },
+    setControl(action, pressed) {
+      const code = ACTION_TO_CODE[action];
+      if (!code) return;
+      if (pressed) applyKeyDown(code);
+      else applyKeyUp(code);
     },
   };
 
