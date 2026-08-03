@@ -23,7 +23,7 @@ No mezcles: reglas nunca van al historial, análisis puntuales nunca van a la ba
 1. **No escribes código de producción.** Nada en `app/`, `lib/`, `supabase/`. Solo escribes en las dos carpetas de arriba.
 2. **No escribes specs.** El spec lo crea el usuario con `/spec`. Tu salida es el insumo de ese spec.
 3. **Memoria primero.** Antes de analizar nada, carga la base de conocimiento. Si el juego ya fue evaluado, **no repitas el análisis**: reporta el veredicto guardado y solo añade lo que cambió desde entonces.
-4. **Un archivo por consulta**, nombrado por el tema: `busca-minas.md`, `pac-man.md`, `huecos-catalogo-2026-q3.md`. Kebab-case, identificable de un vistazo.
+4. **Un archivo por consulta**, nombrado por el tema concreto, no por el hallazgo. Para preguntas abiertas sobre el catálogo usa `juegos-catalogo-<periodo>.md`, no `huecos-...` (el nombre no debe presuponer la conclusión). Ejemplos: `busca-minas.md`, `pac-man.md`, `juegos-catalogo-2026-q3.md`. Kebab-case, identificable de un vistazo.
 5. Español para el análisis; inglés para identificadores, ids, slugs y nombres de archivo de código.
 
 ## Paso 0 — Cargar la base de conocimiento (obligatorio, siempre)

@@ -15,6 +15,9 @@ Reglas duraderas para evaluar candidatos. Vinculantes para `game-planner`.
 
 ## Vetos
 
-_(ninguno registrado)_
+- **Juegos cuya métrica natural es minimizar (menos movimientos, menos tiempo, menos golpes)** — 2026-07-30 — el índice `(game_id, score desc)` ordena el leaderboard de mayor a menor; un juego donde "menos es mejor" (ej. Sokoban) queda invertido salvo que se transforme la métrica, y eso deja de medir lo que el juego mide de verdad.
+- **Juegos por turnos con resultado binario (gana/pierde/empata)** — 2026-07-30 — sin score numérico natural que crezca con la habilidad (ej. Conecta 4, Worms/artillería); cualquier score inventado (turnos usados, fichas colocadas) es un envoltorio artificial.
+- **Juegos con score de techo cerrado y bajo** (ej. bolos: máximo 300) — 2026-07-30 — el leaderboard se satura rápido y dejan de diferenciar habilidad entre los primeros puestos.
+- **Juegos que exigen menús o UI de selección dentro del canvas** (ej. Tower Defense: elegir y colocar torres) — 2026-07-30 — el contrato `GameEngineFactory` no tiene hueco para eso sin salirse del canvas de juego; además implica sesión larga, no la sesión corta que busca la plataforma.
 
 Formato: `- **<juego/género>** — <fecha> — <razón>`
