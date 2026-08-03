@@ -894,6 +894,32 @@ body.is-touch-game {
   filter: drop-shadow(0 0 8px var(--magenta));
 }
 
+.cover-frogger {
+  background: linear-gradient(180deg, #0a2410 0 20%, #0a0a0a 20% 55%, #04202f 55% 100%);
+}
+.cover-frogger::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(var(--yellow), var(--yellow)) 12% 30%/16% 8% no-repeat,
+    linear-gradient(var(--magenta), var(--magenta)) 55% 42%/20% 8% no-repeat,
+    linear-gradient(var(--cyan), var(--cyan)) 30% 68%/22% 7% no-repeat,
+    linear-gradient(var(--cyan), var(--cyan)) 62% 78%/18% 7% no-repeat;
+  filter: drop-shadow(0 0 6px rgba(0, 255, 136, 0.35));
+}
+.cover-frogger::before {
+  content: "";
+  position: absolute;
+  left: 46%;
+  top: 8%;
+  width: 12%;
+  height: 9%;
+  border-radius: 50%;
+  background: var(--green);
+  filter: drop-shadow(0 0 8px var(--green));
+}
+
 /* ===== detail screen ===== */
 .av-detail {
   display: grid;
@@ -1299,7 +1325,7 @@ body.is-touch-game {
 .is-touch.av-player {
   display: grid;
   grid-template-columns: 1fr;
-  grid-template-areas: "stats" "screen" "skin" "pad" "buttons";
+  grid-template-areas: "stats" "screen" "actions" "pad";
   align-content: start;
   gap: 10px;
   height: 100dvh;
@@ -1309,9 +1335,15 @@ body.is-touch-game {
   overflow: hidden;
   touch-action: pan-y;
 }
-.is-touch .player-hud,
-.is-touch .hud-actions {
+.is-touch .player-hud {
   display: contents;
+}
+.is-touch .hud-actions {
+  grid-area: actions;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  align-items: stretch;
 }
 .is-touch .hud-stats {
   grid-area: stats;
@@ -1335,11 +1367,9 @@ body.is-touch-game {
   font-size: 12px;
 }
 .is-touch .hud-skin {
-  grid-area: skin;
   justify-content: center;
 }
 .is-touch .hud-buttons {
-  grid-area: buttons;
   display: flex;
   gap: 8px;
   justify-content: center;
@@ -1377,10 +1407,13 @@ body.is-touch-game {
 
 @media (orientation: landscape) {
   .is-touch.av-player {
-    grid-template-columns: 1fr auto auto;
-    grid-template-areas: "stats skin buttons" "screen screen screen";
+    grid-template-columns: 1fr auto;
+    grid-template-areas: "stats actions" "screen screen";
     height: 100dvh;
     max-height: 100dvh;
+  }
+  .is-touch .hud-actions {
+    flex-direction: row;
   }
   .is-touch .crt-screen {
     width: min(100%, calc((100dvh - 110px) * 4 / 3));

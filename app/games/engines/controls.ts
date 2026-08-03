@@ -20,4 +20,5 @@ export const CONTROLS: Record<string, PadLayout> = {
   },
   arkanoid: { dpad: ["left", "right"], buttons: [] },
   snake: { dpad: ["left", "right", "up", "down"], buttons: [] },
+  frogger: { dpad: ["left", "right", "up", "down"], buttons: [] },
 };

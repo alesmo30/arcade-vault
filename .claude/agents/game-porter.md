@@ -39,6 +39,11 @@ Antes de tocar nada, lee:
 - `app/components/game-player.tsx` — cómo `showPad` decide mostrar el gamepad (`hasEngine && isTouch && !!padLayout`) y cómo `handleControl` reenvía al `ref`.
 - `app/games/engines/game-canvas.tsx` — el puente ya expone `setControl` en el `useImperativeHandle`; no necesitas tocarlo salvo que el contrato cambie.
 - El motor de un engine ya migrado (p. ej. `app/games/engines/snake/engine.ts`, función `setControl` al final y su mapa `ACTION_TO_CODE`) como referencia de patrón, no para copiar mecánica.
+- El bloque `/* ===== layout móvil táctil (spec 10) ===== */` en `app/globals.css` (busca `.is-touch.av-player`, `.player-hud`, `.hud-actions`, `.touch-pad`) — es CSS **compartido por todos los juegos**, no por motor. Wiring de `setControl` correcto no sirve de nada si este layout no coloca el pad en pantalla.
+
+### Precedente: bug real ya encontrado y corregido aquí
+
+Este bloque tuvo un bug de Safari/iOS real (no hipotético): `display: contents` **anidado dos niveles** (`.player-hud` conteniendo `.hud-actions`, ambos `display: contents`) hace que WebKit pierda la asignación de `grid-area` de los nietos y todo colapse en flujo normal, diminuto y amontonado — el pad "existe" en el DOM y el wiring de `setControl` puede estar perfecto, pero en un iPhone real se ve roto e inutilizable. Chromium no tiene este bug, así que una verificación solo en Chrome/desktop no lo detecta. Ya está arreglado (un solo nivel de `display: contents`, `.hud-actions` es grid item real con `grid-area: actions`) — no lo reintroduzcas si tocas ese bloque, y si ves `display: contents` anidado en cualquier CSS nuevo que agregues, es una señal de alarma, no un detalle cosmético.
 
 ## Fase 1 — Identificar el juego objetivo
 
@@ -98,19 +103,27 @@ npm run lint
 npm run build
 ```
 
-Ambos limpios. Después, prueba manual (o pídesela al usuario si no tienes navegador): abrir `/games/<id>/jugar` con emulación de touch/`pointer: coarse` activa en devtools, confirmar que aparece el gamepad, que cada botón mueve/dispara igual que su tecla, que soltar detiene igual que soltar la tecla, y que jugar solo con teclado (sin tocar el pad) sigue funcionando exactamente igual que antes de tu cambio.
+Ambos limpios. Después, verificación real en navegador — no basta con leer el código, `setControl` puede estar perfecto y el juego seguir inutilizable en táctil por el layout compartido (ver precedente en Fase 0):
+
+1. Emula `pointer: coarse` (devtools o `matchMedia` interceptado) y abre `/games/<id>/jugar` en viewport móvil (p. ej. 390×844).
+2. Confirma que `.touch-pad` existe **y tiene un `getBoundingClientRect()` sano**: ancho cercano al del contenedor (no colapsado a unos pocos px), sin solaparse con `.crt`/`.hud-stats`/`.hud-buttons`. Compara sus coordenadas contra las de un juego ya migrado (snake o asteroides) en la misma sesión — deben tener la misma forma de layout, mismo `x`/`width`, filas apiladas sin overlap. Si difieren, el problema es el layout compartido, no tu wiring — repórtalo, no lo ignores.
+3. Toca (o simula un click real, hit-tested — no `dispatchEvent` directo sobre el elemento, que se salta el layout) cada botón del pad y confirma que el HUD React (score/vidas/nivel) cambia igual que con teclado.
+4. Confirma que soltar detiene igual que soltar la tecla, y que jugar solo con teclado (sin tocar el pad) sigue funcionando exactamente igual que antes de tu cambio.
+5. Si no tienes navegador real disponible, corre al menos el paso 1-2 con las herramientas de browser automation disponibles; si tampoco hay, dilo explícitamente en el informe como pendiente — no lo des por bueno solo porque el código "se ve bien".
 
 ## Fase 4 — Informe
 
 ```markdown
 ## <juego> (`<id>`) — <COMPLETO|PARCIAL|AUSENTE|YA PORTADO>
 
-| Check                           | Antes | Ahora |
-| ------------------------------- | ----- | ----- |
-| Entrada en controls.ts          |       |       |
-| setControl en el motor          |       |       |
-| Comparte ruta interna c/teclado |       |       |
-| pressed:false detiene igual     |       |       |
+| Check                                                    | Antes | Ahora |
+| -------------------------------------------------------- | ----- | ----- |
+| Entrada en controls.ts                                   |       |       |
+| setControl en el motor                                   |       |       |
+| Comparte ruta interna c/teclado                          |       |       |
+| pressed:false detiene igual                              |       |       |
+| Pad renderiza (layout sano, comparado con juego migrado) |       |       |
+| Toque real (hit-tested) mueve/dispara en el HUD          |       |       |
 
 **Archivos tocados:** <lista, o "ninguno">
 **Verificación:** lint <ok/falla>, build <ok/falla>, prueba manual <resultado o "pendiente del usuario">
